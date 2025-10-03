@@ -10,16 +10,32 @@ class DailyChallengeScreen extends StatefulWidget {
   State<DailyChallengeScreen> createState() => _DailyChallengeScreenState();
 }
 
-class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
+class _DailyChallengeScreenState extends State<DailyChallengeScreen>
+    with SingleTickerProviderStateMixin {
   late DateTime _displayDate;
   bool _isCompletedForDisplayDate = false;
   int _streak = 0;
+  late AnimationController _animationController;
+  late Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _displayDate = DateTime.now();
     _loadChallengeStatus();
+
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+    _animation =
+        Tween<double>(begin: 1.0, end: 1.2).animate(_animationController);
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
   }
 
   String _getDateKey(DateTime date) {
@@ -35,7 +51,6 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
       _streak = prefs.getInt('daily_streak') ?? 0;
     });
 
-    // Check and reset streak if the last completed day was not yesterday
     final lastCompletedDateStr = prefs.getString('last_completed_date');
     if (lastCompletedDateStr != null) {
       final lastCompletedDate = DateTime.parse(lastCompletedDateStr);
@@ -75,7 +90,7 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (context) => SudokuGameScreen(
-          difficulty: 'Hard', // Daily challenges are usually hard
+          difficulty: 'Hard',
           onGameWon: (score) {
             _markAsCompleted();
           },
@@ -99,7 +114,7 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
     final now = DateTime.now();
     final todayKey = _getDateKey(now);
     await prefs.setBool(todayKey, true);
-    // Update streak
+
     final lastCompletedDateStr = prefs.getString('last_completed_date');
     int newStreak = 1;
     if (lastCompletedDateStr != null) {
@@ -117,7 +132,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
       _isCompletedForDisplayDate = true;
       _streak = newStreak;
     });
-    // Show reward dialog
+
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -133,8 +149,8 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
         actions: [
           TextButton(
             onPressed: () {
-              Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(); // Go back from game screen
+              Navigator.of(context).pop();
+              Navigator.of(context).pop();
             },
             child: const Text("Awesome!"),
           ),
@@ -159,139 +175,151 @@ class _DailyChallengeScreenState extends State<DailyChallengeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final isToday = _displayDate.year == now.year &&
+        _displayDate.month == now.month &&
+        _displayDate.day == now.day;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Win Daily Challenges'),
+        title: const Text('Daily Challenges'),
         centerTitle: true,
-        elevation: 0,
         backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.symmetric(horizontal: 20.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                IconButton(
-                  icon: const Icon(Icons.arrow_back_ios),
-                  onPressed: _navigateToPreviousDay,
-                ),
-                Text(
-                  DateFormat('MMMM d, yyyy').format(_displayDate),
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward_ios),
-                  onPressed: _navigateToNextDay,
-                ),
-              ],
-            ),
-            const Icon(
-              Icons.emoji_events,
-              size: 150,
-              color: Colors.amber,
-            ),
-            FutureBuilder<List<bool>>(
-              future: _getCompletionStatusForWeek(),
-              builder: (context, snapshot) {
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final completionStatus = snapshot.data!;
-                return GridView.builder(
-                  shrinkWrap: true,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 7,
-                    crossAxisSpacing: 10,
-                    mainAxisSpacing: 10,
-                  ),
-                  itemCount: 7,
-                  itemBuilder: (context, index) {
-                    final dayDate = _displayDate
-                        .subtract(Duration(days: 3 - index));
-                    final isCompleted = completionStatus[index];
-                    final isFuture = dayDate.isAfter(DateTime.now());
-                    final isDisplayingDate = dayDate.year == _displayDate.year &&
-                        dayDate.month == _displayDate.month &&
-                        dayDate.day == _displayDate.day;
-
-                    Color circleColor = Colors.grey.shade300;
-                    IconData iconData = Icons.sentiment_satisfied_alt;
-                    Color iconColor = Colors.white;
-
-                    if (isDisplayingDate) {
-                      circleColor = Theme.of(context).primaryColor;
-                    }
-
-                    if (isCompleted) {
-                      iconData = Icons.check_circle;
-                      iconColor = Colors.green;
-                    } else if (isFuture) {
-                      iconData = Icons.lock;
-                      iconColor = Colors.grey;
-                    }
-
-                    return Container(
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: circleColor,
-                        border: isDisplayingDate
-                            ? Border.all(
-                                color: Theme.of(context).primaryColorDark,
-                                width: 2)
-                            : null,
-                      ),
-                      child: Center(
-                        child: Icon(
-                          iconData,
-                          color: iconColor,
-                        ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
-            SizedBox(
-              width: double.infinity,
-              child: Builder(builder: (context) {
-                final now = DateTime.now();
-                final isToday = _displayDate.year == now.year &&
-                    _displayDate.month == now.month &&
-                    _displayDate.day == now.day;
-
-                String buttonText;
-                VoidCallback? onPressedAction;
-
-                if (isToday) {
-                  if (_isCompletedForDisplayDate) {
-                    buttonText = 'Completed';
-                    onPressedAction = null;
-                  } else {
-                    buttonText = 'Play';
-                    onPressedAction = _playDailyChallenge;
-                  }
-                } else {
-                  buttonText =
-                      _isCompletedForDisplayDate ? 'Completed' : 'Missed';
-                  onPressedAction = null;
-                }
-
-                return ElevatedButton(
-                  onPressed: onPressedAction,
-                  style: ElevatedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 40, vertical: 15),
-                    textStyle: const TextStyle(fontSize: 18),
-                  ),
-                  child: Text(buttonText),
-                );
-              }),
-            ),
+            _buildDateNavigator(),
+            _buildTrophy(),
+            _buildStreakTracker(),
+            _buildPlayButton(isToday),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDateNavigator() {
+    final now = DateTime.now();
+    final isNextDayAvailable = !_displayDate
+        .add(const Duration(days: 1))
+        .isAfter(DateTime(now.year, now.month, now.day));
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios, size: 28),
+          onPressed: _navigateToPreviousDay,
+        ),
+        Text(
+          DateFormat('MMMM d, yyyy').format(_displayDate),
+          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+        ),
+        IconButton(
+          icon: Icon(Icons.arrow_forward_ios,
+              size: 28,
+              color: isNextDayAvailable
+                  ? Theme.of(context).colorScheme.secondary
+                  : Colors.grey),
+          onPressed: isNextDayAvailable ? _navigateToNextDay : null,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrophy() {
+    return ScaleTransition(
+      scale: _animation,
+      child: Icon(
+        Icons.emoji_events,
+        size: 150,
+        color: Colors.amber.shade600,
+      ),
+    );
+  }
+
+  Widget _buildStreakTracker() {
+    return FutureBuilder<List<bool>>(
+      future: _getCompletionStatusForWeek(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const SizedBox(height: 60);
+        }
+        final completionStatus = snapshot.data!;
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: List.generate(7, (index) {
+            final dayDate = _displayDate.subtract(Duration(days: 3 - index));
+            final isCompleted = completionStatus[index];
+            final isFuture = dayDate.isAfter(DateTime.now());
+            final isDisplaying = dayDate.day == _displayDate.day;
+
+            IconData iconData;
+            Color iconColor;
+
+            if (isFuture) {
+              iconData = Icons.lock_outline;
+              iconColor = Colors.grey.shade400;
+            } else if (isCompleted) {
+              iconData = Icons.star;
+              iconColor = Colors.amber.shade700;
+            } else {
+              iconData = Icons.circle_outlined;
+              iconColor = Colors.grey.shade500;
+            }
+
+            return Column(
+              children: [
+                Text(
+                  DateFormat('E').format(dayDate).substring(0, 1),
+                  style: TextStyle(
+                      fontWeight:
+                          isDisplaying ? FontWeight.bold : FontWeight.normal),
+                ),
+                const SizedBox(height: 4),
+                Icon(iconData, color: iconColor, size: 32),
+              ],
+            );
+          }),
+        );
+      },
+    );
+  }
+
+  Widget _buildPlayButton(bool isToday) {
+    String buttonText;
+    VoidCallback? onPressedAction;
+
+    if (isToday) {
+      if (_isCompletedForDisplayDate) {
+        buttonText = 'Completed';
+        onPressedAction = null;
+      } else {
+        buttonText = 'Play';
+        onPressedAction = _playDailyChallenge;
+      }
+    } else {
+      buttonText = _isCompletedForDisplayDate ? 'Completed' : 'Missed';
+      onPressedAction = null;
+    }
+
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressedAction,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color.fromARGB(255, 247, 245, 245),
+          foregroundColor: const Color.fromARGB(255, 32, 142, 245),
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          textStyle: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        child: Text(buttonText),
       ),
     );
   }

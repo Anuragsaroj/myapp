@@ -84,7 +84,7 @@ class _AwardsScreenState extends State<AwardsScreen> with TickerProviderStateMix
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withAlpha(51),
             spreadRadius: 2,
             blurRadius: 5,
             offset: const Offset(0, 3),

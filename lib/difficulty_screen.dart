@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:myapp/models/game_difficulty.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-const int easyToMediumUnlock = 5;
-const int mediumToHardUnlock = 5;
-const int hardToExpertUnlock = 5;
+const int easyToMediumUnlock = 1;
+const int mediumToHardUnlock = 1;
+const int hardToExpertUnlock = 1;
 
 class DifficultyScreen extends StatefulWidget {
   final VoidCallback? onScreenClosed;

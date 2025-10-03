@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -41,6 +40,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  void _handleThemeChange(ThemeMode? value) {
+    if (value != null) {
+      setState(() {
+        _themeMode = value;
+      });
+      _updateSetting('theme', value.name);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -73,44 +81,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           _buildSectionHeader('Theme'),
-          RadioListTile<ThemeMode>(
-            title: const Text('Light'),
-            value: ThemeMode.light,
-            groupValue: _themeMode,
-            onChanged: (ThemeMode? value) {
-              if (value != null) {
-                setState(() {
-                  _themeMode = value;
-                });
-                _updateSetting('theme', value.name);
-              }
-            },
-          ),
-          RadioListTile<ThemeMode>(
-            title: const Text('Dark'),
-            value: ThemeMode.dark,
-            groupValue: _themeMode,
-            onChanged: (ThemeMode? value) {
-              if (value != null) {
-                setState(() {
-                  _themeMode = value;
-                });
-                _updateSetting('theme', value.name);
-              }
-            },
-          ),
-          RadioListTile<ThemeMode>(
-            title: const Text('System Default'),
-            value: ThemeMode.system,
-            groupValue: _themeMode,
-            onChanged: (ThemeMode? value) {
-              if (value != null) {
-                setState(() {
-                  _themeMode = value;
-                });
-                _updateSetting('theme', value.name);
-              }
-            },
+          ThemeSelection(
+            selectedTheme: _themeMode,
+            onThemeChanged: _handleThemeChange,
           ),
           _buildSectionHeader('Language'),
           ListTile(
@@ -157,6 +130,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontWeight: FontWeight.bold,
         ),
       ),
+    );
+  }
+}
+
+class ThemeSelection extends StatefulWidget {
+  final ThemeMode selectedTheme;
+  final ValueChanged<ThemeMode?> onThemeChanged;
+
+  const ThemeSelection({
+    super.key,
+    required this.selectedTheme,
+    required this.onThemeChanged,
+  });
+
+  @override
+  State<ThemeSelection> createState() => _ThemeSelectionState();
+}
+
+class _ThemeSelectionState extends State<ThemeSelection> {
+  late ThemeMode _selectedTheme;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedTheme = widget.selectedTheme;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        RadioListTile<ThemeMode>(
+          title: const Text('Light'),
+          value: ThemeMode.light,
+          groupValue: _selectedTheme,
+          onChanged: (ThemeMode? value) {
+            setState(() {
+              _selectedTheme = value!;
+            });
+            widget.onThemeChanged(value);
+          },
+        ),
+        RadioListTile<ThemeMode>(
+          title: const Text('Dark'),
+          value: ThemeMode.dark,
+          groupValue: _selectedTheme,
+          onChanged: (ThemeMode? value) {
+            setState(() {
+              _selectedTheme = value!;
+            });
+            widget.onThemeChanged(value);
+          },
+        ),
+        RadioListTile<ThemeMode>(
+          title: const Text('System Default'),
+          value: ThemeMode.system,
+          groupValue: _selectedTheme,
+          onChanged: (ThemeMode? value) {
+            setState(() {
+              _selectedTheme = value!;
+            });
+            widget.onThemeChanged(value);
+          },
+        ),
+      ],
     );
   }
 }

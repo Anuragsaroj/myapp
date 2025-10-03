@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:myapp/daily_challenge_screen.dart';
 import 'package:myapp/home_screen.dart';
 import 'package:myapp/profile_screen.dart';
+import 'package:myapp/splash_screen.dart';
 import 'package:myapp/themes.dart';
 import 'package:provider/provider.dart';
 
@@ -9,20 +10,39 @@ void main() {
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeManager(),
-      child: const MyApp(),
+      child: const SudokuApp(),
     ),
   );
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+class SudokuApp extends StatelessWidget {
+  const SudokuApp({super.key});
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    return Consumer<ThemeManager>(
+      builder: (context, themeManager, child) {
+        return MaterialApp(
+          title: 'Sudoku Game',
+          theme: AppThemes.lightTheme,
+          darkTheme: AppThemes.darkTheme,
+          themeMode: themeManager.themeMode,
+          home: const SplashScreen(),
+        );
+      },
+    );
+  }
 }
 
-class _MyAppState extends State<MyApp> {
-  int _selectedIndex = 2;
+class MainScreen extends StatefulWidget {
+  const MainScreen({super.key});
+
+  @override
+  State<MainScreen> createState() => _MainScreenState();
+}
+
+class _MainScreenState extends State<MainScreen> {
+  int _selectedIndex = 0;
 
   static final List<Widget> _widgetOptions = <Widget>[
     HomeScreen(key: UniqueKey()),
@@ -38,38 +58,28 @@ class _MyAppState extends State<MyApp> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeManager>(
-      builder: (context, themeManager, child) {
-        return MaterialApp(
-          title: 'Sudoku Game',
-          theme: AppThemes.lightTheme,
-          darkTheme: AppThemes.darkTheme,
-          themeMode: themeManager.themeMode,
-          home: Scaffold(
-            body: Center(
-              child: _widgetOptions.elementAt(_selectedIndex),
-            ),
-            bottomNavigationBar: BottomNavigationBar(
-              items: const <BottomNavigationBarItem>[
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.home),
-                  label: 'Main',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.calendar_today),
-                  label: 'Daily Challenges',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.person),
-                  label: 'Me',
-                ),
-              ],
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-            ),
+    return Scaffold(
+      body: Center(
+        child: _widgetOptions.elementAt(_selectedIndex),
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const <BottomNavigationBarItem>[
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Main',
           ),
-        );
-      },
+          BottomNavigationBarItem(
+            icon: Icon(Icons.calendar_today),
+            label: 'Daily Challenges',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Me',
+          ),
+        ],
+        currentIndex: _selectedIndex,
+        onTap: _onItemTapped,
+      ),
     );
   }
 }

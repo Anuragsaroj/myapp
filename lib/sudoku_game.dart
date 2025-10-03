@@ -169,6 +169,29 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
     await prefs.remove('saved_game');
   }
 
+  void _startNewGame() {
+    setState(() {
+      _score = 0;
+      _mistakes = 0;
+      _secondsElapsed = 0;
+      _hintsUsed = 0;
+      _isBlockPreviouslyCompleted = List.generate(9, (_) => false);
+      _isRowPreviouslyCompleted = List.generate(9, (_) => false);
+      _isColPreviouslyCompleted = List.generate(9, (_) => false);
+      _moveHistory.clear();
+      _selectedRow = -1;
+      _selectedCol = -1;
+      _selectedNumberPadValue = -1;
+      _isPencilMode = false;
+      _floatingScores.clear();
+      _initPuzzle();
+      if (_isTimerRunning) {
+        _timer.cancel();
+      }
+      _startTimer();
+    });
+  }
+
   void _initPuzzle() {
     // Dummy puzzle (replace with your generator or puzzle DB)
     _initialGrid = [
@@ -399,21 +422,6 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
     return true;
   }
 
-  double _getBlockCompletionPercentage(int blockRow, int blockCol) {
-    int filledCells = 0;
-    for (int r = 0; r < 3; r++) {
-      for (int c = 0; c < 3; c++) {
-        final row = blockRow * 3 + r;
-        final col = blockCol * 3 + c;
-        if (_grid[row][col] != 0) {
-          filledCells++;
-        }
-      }
-    }
-    return filledCells / 9.0; // Assuming 9 cells per block
-  }
-
-
   void _showCongratulationsDialog() {
     _pauseTimer();
     _clearGameState();
@@ -449,7 +457,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _initPuzzle();
+              _startNewGame();
             },
             child: const Text("New Game"),
           ),
@@ -486,7 +494,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
           TextButton(
             onPressed: () {
               Navigator.of(context).pop(); // Close dialog
-              Navigator.of(context).pop(); // Go back to main menu
+              _startNewGame();
             },
             child: const Text("New Game"),
           ),
@@ -570,10 +578,10 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
 
           Color cellColor = Theme.of(context).colorScheme.surface;
           if (isHighlighted || isNumberSelected) {
-            cellColor = Colors.blue.withOpacity(0.12);
+            cellColor = Colors.blue.withAlpha(31);
           }
           if (isSelected) {
-            cellColor = Colors.blue.withOpacity(0.25);
+            cellColor = Colors.blue.withAlpha(64);
           }
 
           List<BoxShadow>? boxShadow; // No shadows
@@ -692,6 +700,9 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
 
   // ---------- NUMBER PAD ----------
   Widget _buildNumberPad() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final fontSize = (screenWidth / 15).clamp(20.0, 32.0);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8.0),
       child: Row(
@@ -725,7 +736,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
                 child: Text(
                   number.toString(),
                   style: TextStyle(
-                    fontSize: 28,
+                    fontSize: fontSize,
                     fontWeight: FontWeight.bold,
                     color: isFullyUsed
                         ? Theme.of(context).colorScheme.onSurface.withAlpha(77)
@@ -745,90 +756,160 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Column(
-          children: [
-            _buildHeader(),
-            _buildBlockCompletionProgressBar(),
-            Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1.0,
-                  child: LayoutBuilder(builder: (context, constraints) {
-                    return Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        _buildGrid(),
-                        ..._buildFloatingScores(constraints),
-                      ],
-                    );
-                  }),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final isLandscape = constraints.maxWidth > constraints.maxHeight;
+            if (isLandscape) {
+              return _buildLandscapeLayout();
+            } else {
+              return _buildPortraitLayout();
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitLayout() {
+    return Column(
+      children: [
+        _buildHeader(),
+        _buildBlockCompletionProgressBar(),
+        Expanded(
+          child: Center(
+            child: AspectRatio(
+              aspectRatio: 1.0,
+              child: LayoutBuilder(builder: (context, constraints) {
+                return Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    _buildGrid(),
+                    ..._buildFloatingScores(constraints),
+                  ],
+                );
+              }),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _buildActionButtons(),
+        const SizedBox(height: 20),
+        _buildNumberPad(),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeLayout() {
+    return Row(
+      children: [
+        Expanded(
+          flex: 5,
+          child: Column(
+            children: [
+              _buildHeader(),
+              Expanded(
+                child: Center(
+                  child: AspectRatio(
+                    aspectRatio: 1.0,
+                    child: LayoutBuilder(builder: (context, constraints) {
+                      return Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          _buildGrid(),
+                          ..._buildFloatingScores(constraints),
+                        ],
+                      );
+                    }),
+                  ),
                 ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Padding(
+            ],
+          ),
+        ),
+        Expanded(
+          flex: 4,
+          child: SingleChildScrollView(
+            child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  _buildBlockCompletionProgressBar(),
+                  const SizedBox(height: 20),
+                  _buildNumberPad(),
+                  const SizedBox(height: 20),
+                  _buildActionButtons(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
                   _buildActionButton(Icons.undo, "Undo", _undoMove),
                   _buildActionButton(Icons.delete_outline, "Erase", _eraseValue),
                   _buildActionButton(Icons.edit_note, "Notes", _togglePencil, isActive: _isPencilMode),
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                      child: ElevatedButton.icon(
-                        onPressed: _hintsUsed >= _maxHints ? null : _useHint,
-                        icon: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            const Icon(Icons.lightbulb, size: 24),
-                            if (_hintsUsed < _maxHints)
-                              Positioned(
-                                top: -4,
-                                right: -6,
-                                child: CircleAvatar(
-                                  radius: 8,
-                                  backgroundColor: Theme.of(context).colorScheme.primary,
-                                  child: Text(
-                                    '${_maxHints - _hintsUsed}',
-                                    style: TextStyle(
-                                      color: Theme.of(context).colorScheme.onPrimary,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                        label: const Text("Hint", style: TextStyle(fontSize: 12)),
-                        style: ElevatedButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.onSurface,
-                          backgroundColor: Theme.of(context).colorScheme.surface,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+              child: ElevatedButton.icon(
+                onPressed: _hintsUsed >= _maxHints ? null : _useHint,
+                icon: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.lightbulb, size: 24),
+                    if (_hintsUsed < _maxHints)
+                      Positioned(
+                        top: -4,
+                        right: -6,
+                        child: CircleAvatar(
+                          radius: 8,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
+                          child: Text(
+                            '${_maxHints - _hintsUsed}',
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onPrimary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                          elevation: 4, // Shadow
-                          shadowColor: Theme.of(context).shadowColor,
                         ),
                       ),
-                    ),
+                  ],
+                ),
+                label: Text("Hint", style: TextStyle(fontSize: (MediaQuery.of(context).size.width / 30).clamp(10.0, 14.0))),
+                style: ElevatedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onSurface,
+                  backgroundColor: Theme.of(context).colorScheme.surface,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                ],
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                  elevation: 4, // Shadow
+                  shadowColor: Theme.of(context).shadowColor,
+                ),
               ),
             ),
-            const SizedBox(height: 20),
-            _buildNumberPad(),
-            const SizedBox(height: 20),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildActionButton(IconData icon, String label, VoidCallback onPressed, {bool isActive = false}) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final buttonFontSize = (screenWidth / 30).clamp(10.0, 14.0);
+    final buttonIconSize = (screenWidth / 20).clamp(18.0, 24.0);
+
     final activeBackgroundColor = Theme.of(context).colorScheme.primary;
     final activeForegroundColor = Theme.of(context).colorScheme.onPrimary;
     final inactiveBackgroundColor = Theme.of(context).colorScheme.surface;
@@ -839,8 +920,8 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
         padding: const EdgeInsets.symmetric(horizontal: 4.0),
         child: ElevatedButton.icon(
           onPressed: onPressed,
-          icon: Icon(icon, size: 24),
-          label: Text(label, style: const TextStyle(fontSize: 12)),
+          icon: Icon(icon, size: buttonIconSize),
+          label: Text(label, style: TextStyle(fontSize: buttonFontSize)),
           style: ElevatedButton.styleFrom(
             foregroundColor: isActive ? activeForegroundColor : inactiveForegroundColor,
             backgroundColor: isActive ? activeBackgroundColor : inactiveBackgroundColor,
@@ -898,6 +979,11 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
   }
 
   Widget _buildInfoCard(String title, String value, IconData icon, Color color) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenWidth / 40).clamp(8.0, 12.0);
+    final valueFontSize = (screenWidth / 28).clamp(12.0, 16.0);
+    final iconSize = (screenWidth / 28).clamp(12.0, 16.0);
+
     return Expanded(
       child: Card(
         elevation: 2,
@@ -906,18 +992,18 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
           padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
           child: Column(
             children: [
-              Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10)),
+              Text(title, style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: titleFontSize)),
               const SizedBox(height: 2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(icon, color: color, size: 14),
+                  Icon(icon, color: color, size: iconSize),
                   const SizedBox(width: 4),
                   Text(value,
                       style: Theme.of(context)
                           .textTheme
                           .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold, fontSize: 14)),
+                          ?.copyWith(fontWeight: FontWeight.bold, fontSize: valueFontSize)),
                 ],
               ),
             ],
@@ -928,6 +1014,11 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
   }
 
   Widget _buildTimerCard() {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final titleFontSize = (screenWidth / 40).clamp(8.0, 12.0);
+    final valueFontSize = (screenWidth / 28).clamp(12.0, 16.0);
+    final iconSize = (screenWidth / 28).clamp(12.0, 16.0);
+
     return Expanded(
       child: Card(
         elevation: 2,
@@ -936,19 +1027,19 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
           padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 4.0),
           child: Column(
             children: [
-              Text("Timer", style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: 10)),
+              Text("Timer", style: Theme.of(context).textTheme.bodySmall?.copyWith(fontSize: titleFontSize)),
               const SizedBox(height: 2),
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.timer, color: Theme.of(context).colorScheme.primary, size: 14),
+                  Icon(Icons.timer, color: Theme.of(context).colorScheme.primary, size: iconSize),
                   const SizedBox(width: 4),
                   Text(
                     _formatTime(_secondsElapsed),
                     style: Theme.of(context)
                         .textTheme
                         .titleMedium
-                        ?.copyWith(fontWeight: FontWeight.bold, fontSize: 14),
+                        ?.copyWith(fontWeight: FontWeight.bold, fontSize: valueFontSize),
                   ),
                 ],
               ),
@@ -1017,7 +1108,7 @@ class _SudokuGameScreenState extends State<SudokuGameScreen> with WidgetsBinding
                     ? Theme.of(context).colorScheme.secondary
                     : Theme.of(context).colorScheme.error,
                 fontWeight: FontWeight.bold,
-                fontSize: 24,
+                fontSize: (cellSize * 0.4).clamp(16.0, 28.0),
                 shadows: const [
                   Shadow(
                     blurRadius: 4.0,
