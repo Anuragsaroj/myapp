@@ -1,0 +1,34 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+
+# Flutter/Dart
+/build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+/ios/Pods/
+/ios/Flutter/App.framework
+/ios/Flutter/Flutter.framework
+/ios/.symlinks/
+/ios/Flutter/pod_helper.rb
+
+# Android
+/android/app/src/main/assets/flutter_assets/
+/android/app/build/
+/android/build/
+/android/.gradle/
+/android/gradle/
+/android/local.properties
+/android/key.properties
+/android/app/google-services.json
